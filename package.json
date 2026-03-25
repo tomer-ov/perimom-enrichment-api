@@ -1,42 +1,9 @@
-import express from "express";
-
-const app = express();
-
-app.use(express.json());
-
-// חשוב ל-CORS
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
+{
+  "name": "perimom-enrichment-api",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.18.2"
   }
-  next();
-});
-
-// endpoint לבדיקה
-app.get("/", (req, res) => {
-  res.json({ status: "ok" });
-});
-
-// 👇 זה הכי חשוב
-app.post("/enrich", async (req, res) => {
-  try {
-    return res.status(200).json({
-      profile_summary: "זה טסט - החיבור עובד 🎉",
-      outreach_recommendation: "אפשר לפנות בגישה חמה ואישית"
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: "failed"
-    });
-  }
-});
-
-// חשוב ל-Render
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+}
