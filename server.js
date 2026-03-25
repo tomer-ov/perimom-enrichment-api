@@ -3,79 +3,72 @@ import express from "express";
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-// ✅ CORS
+// CORS
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
-// ✅ Health check
+// Health check
 app.get("/", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// Main endpoint
 app.post("/enrich", async (req, res) => {
   try {
+    // 🔴 אם אין API KEY → תחזיר שגיאה ברורה
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        error: "missing_openai_key"
+      });
+    }
+
     const lead = req.body ?? {};
 
-    const systemPrompt = `
-You analyze clinics and professionals in pregnancy, birth, postpartum, lactation, wellness, and related care.
-Write in Hebrew. Do not invent facts.
-`;
-
-    const userPrompt = `
-Analyze this lead:
+    const prompt = `
+נתח את הליד הבא בצורה פשוטה וברורה:
 
 ${JSON.stringify(lead, null, 2)}
 
-Return JSON with:
-- profile_summary
-- outreach_recommendation
+תחזיר:
+1. תיאור קצר מי זה
+2. איך כדאי לפנות אליו
+כתוב בעברית.
 `;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        // 🔴🔴🔴 גם כאן משתמשים במפתח 🔴🔴🔴
-        Authorization: `Bearer $
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini", // 🔥 החלפתי למודל יציב
-        input: [
-          {
-            role: "system",
-            content: [{ type: "input_text", text: systemPrompt }],
-          },
-          {
-            role: "user",
-            content: [{ type: "input_text", text: userPrompt }],
-          },
-        ],
+        model: "gpt-4.1-mini",
+        input: prompt,
       }),
     });
 
     const data = await response.json();
 
-    // 🔥 פישוט — לא צריך parsing מסובך
     const text =
       data.output_text ||
       data.output?.[0]?.content?.[0]?.text ||
-      "";
+      "לא התקבלה תשובה";
 
     return res.json({
       profile_summary: text,
-      outreach_recommendation: text,
+      outreach_recommendation: text
     });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: error.message });
+    console.error("ERROR:", error);
+    return res.status(500).json({
+      error: error.message
+    });
   }
 });
 
