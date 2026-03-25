@@ -12,32 +12,50 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check
+// בדיקת בריאות
 app.get("/", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    hasOpenAIKey: Boolean(process.env.OPENAI_API_KEY),
+  });
 });
 
-// Main endpoint
+// ה-endpoint של Lovable
 app.post("/enrich", async (req, res) => {
   try {
-    // 🔴 אם אין API KEY → תחזיר שגיאה ברורה
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({
-        error: "missing_openai_key"
+        profile_summary: "חסר OPENAI_API_KEY ב-Render",
+        outreach_recommendation: "יש להגדיר את המפתח ב-Environment Variables",
+        debug: "missing_openai_key",
       });
     }
 
     const lead = req.body ?? {};
 
     const prompt = `
-נתח את הליד הבא בצורה פשוטה וברורה:
+אתה מנתח לידים של מיילדות, דולות, קליניקות הריון ולידה, ומטפלים רלוונטיים.
 
+מטרה:
+לעזור לצוות שותפויות להבין:
+1. מי העסק / אשת המקצוע
+2. איך הם כנראה עובדים
+3. איך נכון לפנות אליהם
+
+חוקים:
+- כתוב בעברית
+- אל תמציא עובדות
+- אם חסר מידע, תגיד שחסר
+- תהיה פרקטי, אנושי וקצר
+
+הליד:
 ${JSON.stringify(lead, null, 2)}
 
-תחזיר:
-1. תיאור קצר מי זה
-2. איך כדאי לפנות אליו
-כתוב בעברית.
+תחזיר JSON בלבד בפורמט הזה:
+{
+  "profile_summary": "פסקה קצרה בעברית",
+  "outreach_recommendation": "המלצה קצרה בעברית"
+}
 `;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -53,27 +71,46 @@ ${JSON.stringify(lead, null, 2)}
     });
 
     const data = await response.json();
+    console.log("OPENAI RESPONSE:", JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      return res.status(500).json({
+        profile_summary: "שגיאה בקריאה ל-OpenAI",
+        outreach_recommendation: "בדוק לוגים ב-Render",
+        debug: data,
+      });
+    }
 
     const text =
       data.output_text ||
       data.output?.[0]?.content?.[0]?.text ||
-      "לא התקבלה תשובה";
+      "";
+
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = {
+        profile_summary: text || "לא התקבלה תשובה",
+        outreach_recommendation: text || "לא התקבלה תשובה",
+      };
+    }
 
     return res.json({
-      profile_summary: text,
-      outreach_recommendation: text
+      profile_summary: parsed.profile_summary || "לא התקבלה תשובה",
+      outreach_recommendation: parsed.outreach_recommendation || "לא התקבלה תשובה",
     });
-
   } catch (error) {
-    console.error("ERROR:", error);
+    console.error("SERVER ERROR:", error);
     return res.status(500).json({
-      error: error.message
+      profile_summary: "שגיאת שרת",
+      outreach_recommendation: "בדוק לוגים ב-Render",
+      debug: error.message,
     });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log(`Server running on port ${PORT}`);
 });
