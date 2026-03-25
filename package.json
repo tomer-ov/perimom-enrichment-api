@@ -1,9 +1,9 @@
-app.post("/enrich", async (req, res) => {
-  console.log("🔥 REQUEST RECEIVED");
-  console.log(req.body);
-
-  return res.status(200).json({
-    profile_summary: "זה טסט - החיבור עובד 🎉",
-    outreach_recommendation: "אפשר לפנות בגישה חמה ואישית"
-  });
-});
+{
+  "name": "perimom-enrichment-api",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
